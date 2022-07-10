@@ -360,6 +360,47 @@ class Plot {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.aColor);
     gl.vertexAttribPointer(this.locations.aColor, 4, gl.FLOAT, false, 0, 0);
     gl.drawArrays(gl.LINES, 0, this.data.position.length / 2);
+    // axes
+    {
+      const textW = 20 / gl.canvas.width / this.zoom.x;
+      const textH = 30 / gl.canvas.height / this.zoom.y;
+      const marginX = 10 / gl.canvas.width / this.zoom.x;
+      const marginY = 10 / gl.canvas.height / this.zoom.y;
+      // x axis
+      {
+        const span = 2 / this.zoom.x;
+        let increment = 10 ** Math.floor(Math.log10(span));
+        if (span / increment < 2) {
+          increment /= 5;
+        } else if (span / increment < 5) {
+          increment /= 2;
+        }
+        let i = Math.floor((this.origin.x - span / 2) / increment) * increment + increment;
+        while (i < this.origin.x + span / 2) {
+          if (Math.abs(i) < 1e-12) i = 0;
+          this.text(i.toPrecision(3), i + marginX, this.origin.y - span / 2 + marginY, textW, textH);
+          this.text('L', i, this.origin.y - span / 2, textW * 2, textH);
+          i += increment;
+        }
+      }
+      // y axis
+      {
+        const span = 2 / this.zoom.y;
+        let increment = 10 ** Math.floor(Math.log10(span));
+        if (span / increment < 2) {
+          increment /= 5;
+        } else if (span / increment < 5) {
+          increment /= 2;
+        }
+        let i = Math.floor((this.origin.y - span / 2) / increment) * increment + increment;
+        while (i < this.origin.y + span / 2) {
+          if (Math.abs(i) < 1e-12) i = 0;
+          this.text(i.toPrecision(3), this.origin.x - span / 2 + marginX, i + marginY, textW, textH);
+          this.text('L', this.origin.x - span / 2, i, textW * 2, textH)
+          i += increment;
+        }
+      }
+    }
     // dynamic
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.aPositionDynamic);
     gl.bufferData(gl.ARRAY_BUFFER, 2 * this.data.positionDynamic.length * 4, gl.DYNAMIC_DRAW);
