@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<body style="margin: 0; background-color: black; overflow-y: hidden">
+  <canvas id="canvas" style="width: 100vw; height: 100vh"/>
+</body>
+
+<script type='text/javascript' src='plot.js'></script>
+<script>
+
+const f = {}; // file-scope vars
+
+window.onload = () => {
+  const canvas = document.getElementById('canvas');
+  canvas.width = document.body.clientWidth;
+  canvas.height = document.body.clientHeight;
+  const gl = canvas.getContext('webgl');
+  if (!gl) {
+    alert('Unable to initialize WebGL. Your browser or machine may not support it.');
+    return;
+  }
+  const plot = new Plot(gl);
+  for (let i = 0; i < 10000; ++i) {
+    plot.add(
+      Math.random(), Math.random() * Math.random(),
+      Math.random(), Math.random(), Math.random(), Math.random() / 4,
+    );
+  }
+  plot.prep();
+  plot.draw();
+  f.plot = plot;
+}
+
+window.addEventListener('mousedown', (event) => {
+  if (event.button === 0) f.drag = { x: event.x, y: event.y };
+});
+window.addEventListener('mouseup', (event) => {
+  if (event.button === 0) f.drag = null;
+});
+window.addEventListener('mousemove', (event) => {
+  if (f.drag) {
+    f.plot.move(
+      -(event.x - f.drag.x) / document.body.clientWidth * 2,
+      +(event.y - f.drag.y) / document.body.clientHeight * 2,
+    );
+    f.drag = { x: event.x, y: event.y };
+  };
+});
+window.addEventListener('wheel', (event) => {
+  const factor = 2 ** ((event.deltaY > 0 ? 1 : -1) / 2)
+  f.plot.zoomBy(factor, factor);
+});
+
+</script>

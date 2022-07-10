@@ -1,0 +1,6 @@
+fix zoom
+axes
+accept data from python
+change interface:
+	data(points|line_strip|triangles|etc, positions, colors, { offset, length })
+	text(s, x, y, h, r, g, b, a)
