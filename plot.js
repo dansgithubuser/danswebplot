@@ -9,8 +9,8 @@ const vertShaderSource = `
 
   void main() {
     gl_Position = vec4(
-      (aPosition.x - uOrigin.x) / uZoom.x,
-      (aPosition.y - uOrigin.y) / uZoom.y,
+      (aPosition.x - uOrigin.x) * uZoom.x,
+      (aPosition.y - uOrigin.y) * uZoom.y,
       0.0,
       1.0
     );
@@ -104,14 +104,18 @@ class Plot {
   }
 
   move(dx, dy) {
-    this.origin.x += dx;
-    this.origin.y += dy;
+    this.origin.x += dx / this.zoom.x;
+    this.origin.y += dy / this.zoom.y;
     this.draw();
   }
 
-  zoomBy(fx, fy) {
-    this.zoom.x *= fx;
-    this.zoom.y *= fy;
+  zoomAt(x, y, factor) {
+    x = x / this.zoom.x + this.origin.x; // gl coords to data coords
+    y = y / this.zoom.y + this.origin.y;
+    this.zoom.x *= factor;
+    this.zoom.y *= factor;
+    this.origin.x = x - (x - this.origin.x) / factor;
+    this.origin.y = y - (y - this.origin.y) / factor;
     this.draw();
   }
 }

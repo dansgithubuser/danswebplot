@@ -1,4 +1,3 @@
-fix zoom
 axes
 accept data from python
 change interface:
