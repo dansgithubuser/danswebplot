@@ -254,9 +254,48 @@ function loadShader(gl, type, source) {
   return shader;
 }
 
+class Data {
+  constructor(gl) {
+    this.gl = gl;
+    this.data = [];
+    this.buffer = gl.createBuffer();
+  }
+
+  push(data) {
+    this.data.push(...data);
+  }
+
+  clear() {
+    this.data = [];
+  }
+
+  length() {
+    return this.data.length;
+  }
+
+  toBuffer(usage) {
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.length() * 4, usage);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(this.data), 0, this.length());
+  }
+
+  attribute(location, components) {
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+    gl.vertexAttribPointer(location, components, gl.FLOAT, false, 0, 0);
+  }
+}
+
+// interface
 class Plot {
   constructor(gl) {
     this.gl = gl;
+    this.prepped = false;
+    this.draws = {
+      static: [],
+      dynamic: [],
+    };
     // shader
     const vertShader = loadShader(gl, gl.VERTEX_SHADER  , vertShaderSource);
     const fragShader = loadShader(gl, gl.FRAGMENT_SHADER, fragShaderSource);
@@ -273,20 +312,19 @@ class Plot {
       uOrigin: gl.getUniformLocation(this.program, 'uOrigin'),
       uZoom: gl.getUniformLocation(this.program, 'uZoom'),
     };
-    // attributes
-    this.data = {
-      position: [],
-      color: [],
-      positionDynamic: [],
-      colorDynamic: [],
+    gl.enableVertexAttribArray(this.locations.aPosition);
+    gl.enableVertexAttribArray(this.locations.aColor);
+    // datas
+    this.datas = {
+      static: {
+        position: new Data(gl),
+        color: new Data(gl),
+      },
+      dynamic: {
+        position: new Data(gl),
+        color: new Data(gl),
+      },
     };
-    this.buffers = {};
-    for (const attrib of ['aPosition', 'aColor', 'aPositionDynamic', 'aColorDynamic']) {
-      this.buffers[attrib] = gl.createBuffer();
-    }
-    for (const attrib of ['aPosition', 'aColor']) {
-      gl.enableVertexAttribArray(this.locations[attrib]);
-    }
     // uniforms
     this.origin = { x: 0, y: 0 };
     this.zoom = { x: 1, y: 1 };
@@ -295,29 +333,113 @@ class Plot {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
   }
 
-  add(x, y, r, g, b, a) {
-    this.data.position.push(x, y);
-    this.data.color.push(r, g, b, a);
+  data(usage, mode, positions, colors) {
+    this.draws[usage].push({
+      mode,
+      first: this.datas[usage].position.length() / 2,
+      count: positions.length / 2,
+    });
+    this.datas[usage].position.push(positions);
+    this.datas[usage].color.push(colors);
   }
 
-  prep() {
+  draw() {
     const gl = this.gl;
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.aPosition);
-    gl.bufferData(gl.ARRAY_BUFFER, 2 * this.data.position.length * 4, gl.STATIC_DRAW);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(this.data.position), 0, this.data.position.length);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.aColor);
-    gl.bufferData(gl.ARRAY_BUFFER, 4 * this.data.color.length * 4, gl.STATIC_DRAW);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(this.data.color), 0, this.data.color.length);
+    // prep
+    if (!this.prepped) {
+      this.datas.static.position.toBuffer(gl.STATIC_DRAW);
+      this.datas.static.color.toBuffer(gl.STATIC_DRAW);
+      this.prepped = true;
+    }
+    // clear
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    // uniforms
+    gl.uniform2f(this.locations.uOrigin, this.origin.x, this.origin.y);
+    gl.uniform2f(this.locations.uZoom, this.zoom.x, this.zoom.y);
+    // axes
+    {
+      const texter = new Texter();
+      const textW = 20 / gl.canvas.width / this.zoom.x;
+      const textH = 30 / gl.canvas.height / this.zoom.y;
+      const marginX = 10 / gl.canvas.width / this.zoom.x;
+      const marginY = 10 / gl.canvas.height / this.zoom.y;
+      // x axis
+      {
+        const span = 2 / this.zoom.x;
+        let increment = 10 ** Math.floor(Math.log10(span));
+        if (span / increment < 2) {
+          increment /= 5;
+        } else if (span / increment < 5) {
+          increment /= 2;
+        }
+        let i = Math.floor((this.origin.x - span / 2) / increment) * increment + increment;
+        while (i < this.origin.x + span / 2) {
+          if (Math.abs(i) < 1e-12) i = 0;
+          texter.text(i.toPrecision(3), i + marginX, this.origin.y - span / 2 + marginY, textW, textH);
+          texter.text('L', i, this.origin.y - span / 2, textW * 2, textH);
+          i += increment;
+        }
+      }
+      // y axis
+      {
+        const span = 2 / this.zoom.y;
+        let increment = 10 ** Math.floor(Math.log10(span));
+        if (span / increment < 2) {
+          increment /= 5;
+        } else if (span / increment < 5) {
+          increment /= 2;
+        }
+        let i = Math.floor((this.origin.y - span / 2) / increment) * increment + increment;
+        while (i < this.origin.y + span / 2) {
+          if (Math.abs(i) < 1e-12) i = 0;
+          texter.text(i.toPrecision(3), this.origin.x - span / 2 + marginX, i + marginY, textW, textH);
+          texter.text('L', this.origin.x - span / 2, i, textW * 2, textH)
+          i += increment;
+        }
+      }
+      // to data
+      this.data('dynamic', 'lines', texter.positions, texter.colors);
+    }
+    // draw
+    for (const draw of this.draws.static) {
+      this.datas.static.position.attribute(this.locations.aPosition, 2);
+      this.datas.static.color.attribute(this.locations.aColor, 4);
+      gl.drawArrays(gl[draw.mode.toUpperCase()], draw.first, draw.count);
+    }
+    for (const draw of this.draws.dynamic) {
+      this.datas.dynamic.position.toBuffer(gl.DYNAMIC_DRAW);
+      this.datas.dynamic.color.toBuffer(gl.DYNAMIC_DRAW);
+      this.datas.dynamic.position.attribute(this.locations.aPosition, 2);
+      this.datas.dynamic.color.attribute(this.locations.aColor, 4);
+      gl.drawArrays(gl[draw.mode.toUpperCase()], draw.first, draw.count);
+    }
+    this.draws.dynamic = [];
+    this.datas.dynamic.position.clear();
+    this.datas.dynamic.color.clear();
   }
 
-  addDynamic(x, y, r, g, b, a) {
-    this.data.positionDynamic.push(x, y);
-    this.data.colorDynamic.push(r, g, b, a);
+  move(dx, dy) {
+    this.origin.x += dx / this.zoom.x;
+    this.origin.y += dy / this.zoom.y;
+    this.draw();
   }
 
-  resetDynamic() {
-    this.data.positionDynamic = [];
-    this.data.colorDynamic = [];
+  zoomAt(x, y, factor) {
+    x = x / this.zoom.x + this.origin.x; // gl coords to data coords
+    y = y / this.zoom.y + this.origin.y;
+    this.zoom.x *= factor;
+    this.zoom.y *= factor;
+    this.origin.x = x - (x - this.origin.x) / factor;
+    this.origin.y = y - (y - this.origin.y) / factor;
+    this.draw();
+  }
+}
+
+class Texter {
+  constructor() {
+    this.positions = [];
+    this.colors = [];
   }
 
   text(s, x, y, w, h, r = 1, g = 1, b = 1, a = 1) {
@@ -338,97 +460,13 @@ class Plot {
     if (glyph.length && typeof glyph[0] === 'string') {
       for (const c of glyph) this.glyph(c, x, y, w, h, r, g, b, a);
     } else {
-      for (let i = 0; i < glyph.length; i += 2) this.addDynamic(
-        x + glyph[i+0] / 3 * w,
-        y + glyph[i+1] / 2 * h,
-        r, g, b, a,
-      );
-    }
-  }
-
-  draw() {
-    const gl = this.gl;
-    // clear
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    // uniforms
-    gl.uniform2f(this.locations.uOrigin, this.origin.x, this.origin.y);
-    gl.uniform2f(this.locations.uZoom, this.zoom.x, this.zoom.y);
-    // static
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.aPosition);
-    gl.vertexAttribPointer(this.locations.aPosition, 2, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.aColor);
-    gl.vertexAttribPointer(this.locations.aColor, 4, gl.FLOAT, false, 0, 0);
-    gl.drawArrays(gl.LINES, 0, this.data.position.length / 2);
-    // axes
-    {
-      const textW = 20 / gl.canvas.width / this.zoom.x;
-      const textH = 30 / gl.canvas.height / this.zoom.y;
-      const marginX = 10 / gl.canvas.width / this.zoom.x;
-      const marginY = 10 / gl.canvas.height / this.zoom.y;
-      // x axis
-      {
-        const span = 2 / this.zoom.x;
-        let increment = 10 ** Math.floor(Math.log10(span));
-        if (span / increment < 2) {
-          increment /= 5;
-        } else if (span / increment < 5) {
-          increment /= 2;
-        }
-        let i = Math.floor((this.origin.x - span / 2) / increment) * increment + increment;
-        while (i < this.origin.x + span / 2) {
-          if (Math.abs(i) < 1e-12) i = 0;
-          this.text(i.toPrecision(3), i + marginX, this.origin.y - span / 2 + marginY, textW, textH);
-          this.text('L', i, this.origin.y - span / 2, textW * 2, textH);
-          i += increment;
-        }
-      }
-      // y axis
-      {
-        const span = 2 / this.zoom.y;
-        let increment = 10 ** Math.floor(Math.log10(span));
-        if (span / increment < 2) {
-          increment /= 5;
-        } else if (span / increment < 5) {
-          increment /= 2;
-        }
-        let i = Math.floor((this.origin.y - span / 2) / increment) * increment + increment;
-        while (i < this.origin.y + span / 2) {
-          if (Math.abs(i) < 1e-12) i = 0;
-          this.text(i.toPrecision(3), this.origin.x - span / 2 + marginX, i + marginY, textW, textH);
-          this.text('L', this.origin.x - span / 2, i, textW * 2, textH)
-          i += increment;
-        }
+      for (let i = 0; i < glyph.length; i += 2) {
+        this.positions.push(
+          x + glyph[i + 0] / 3 * w,
+          y + glyph[i + 1] / 2 * h,
+        );
+        this.colors.push(r, g, b, a);
       }
     }
-    // dynamic
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.aPositionDynamic);
-    gl.bufferData(gl.ARRAY_BUFFER, 2 * this.data.positionDynamic.length * 4, gl.DYNAMIC_DRAW);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(this.data.positionDynamic), 0, this.data.positionDynamic.length);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.aColorDynamic);
-    gl.bufferData(gl.ARRAY_BUFFER, 4 * this.data.colorDynamic.length * 4, gl.STATIC_DRAW);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(this.data.colorDynamic), 0, this.data.colorDynamic.length);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.aPositionDynamic);
-    gl.vertexAttribPointer(this.locations.aPosition, 2, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.aColorDynamic);
-    gl.vertexAttribPointer(this.locations.aColor, 4, gl.FLOAT, false, 0, 0);
-    gl.drawArrays(gl.LINES, 0, this.data.positionDynamic.length / 2);
-    this.resetDynamic();
-  }
-
-  move(dx, dy) {
-    this.origin.x += dx / this.zoom.x;
-    this.origin.y += dy / this.zoom.y;
-    this.draw();
-  }
-
-  zoomAt(x, y, factor) {
-    x = x / this.zoom.x + this.origin.x; // gl coords to data coords
-    y = y / this.zoom.y + this.origin.y;
-    this.zoom.x *= factor;
-    this.zoom.y *= factor;
-    this.origin.x = x - (x - this.origin.x) / factor;
-    this.origin.y = y - (y - this.origin.y) / factor;
-    this.draw();
   }
 }

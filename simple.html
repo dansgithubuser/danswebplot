@@ -18,13 +18,13 @@ window.onload = () => {
     return;
   }
   const plot = new Plot(gl);
+  const positions = [];
+  const colors = [];
   for (let i = 0; i < 10000; ++i) {
-    plot.add(
-      Math.random(), Math.random() * Math.random(),
-      Math.random(), Math.random(), Math.random(), Math.random() / 4,
-    );
+    positions.push(Math.random(), Math.random() * Math.random());
+    colors.push(Math.random(), Math.random(), Math.random(), Math.random() / 4);
   }
-  plot.prep();
+  plot.data('static', 'lines', positions, colors);
   plot.draw();
   f.plot = plot;
 }

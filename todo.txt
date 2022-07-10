@@ -1,4 +1,19 @@
 change interface:
 	data(points|line_strip|triangles|etc, positions, colors, { offset, length })
 	text(s, x, y, h, r, g, b, a)
+get rid of antialiasing?
 accept data from python
+	webbrowser to local danswebplot
+	simple http request from danswebplot to local server to get data
+		poll to update dynamic data
+
+
+
+
+
+
+
+
+static data (static data, static description)
+texts (dynamic data, static description)
+dynamic data (dynamic data, static description)
