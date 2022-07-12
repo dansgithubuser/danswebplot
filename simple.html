@@ -12,7 +12,7 @@ window.onload = () => {
   const canvas = document.getElementById('canvas');
   canvas.width = document.body.clientWidth;
   canvas.height = document.body.clientHeight;
-  const gl = canvas.getContext('webgl');
+  const gl = canvas.getContext('webgl', { antialias: false });
   if (!gl) {
     alert('Unable to initialize WebGL. Your browser or machine may not support it.');
     return;
