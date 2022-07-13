@@ -1,5 +1,3 @@
-dynamic helper for semistatic dynamics
-text helper for semistatic text
 accept data from python
 	webbrowser to local danswebplot
 	simple http request from danswebplot to local server to get data

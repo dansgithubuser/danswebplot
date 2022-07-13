@@ -254,14 +254,14 @@ function loadShader(gl, type, source) {
   return shader;
 }
 
-class Data {
+class Buffer {
   constructor(gl) {
     this.gl = gl;
     this.data = [];
     this.buffer = gl.createBuffer();
   }
 
-  push(data) {
+  push(...data) {
     this.data.push(...data);
   }
 
@@ -273,17 +273,18 @@ class Data {
     return this.data.length;
   }
 
-  toBuffer(usage) {
+  prep(usage) {
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
     gl.bufferData(gl.ARRAY_BUFFER, this.length() * 4, usage);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(this.data), 0, this.length());
   }
 
-  attribute(location, components) {
+  attribute(locations) {
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-    gl.vertexAttribPointer(location, components, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(locations.aPosition, 2, gl.FLOAT, false, 6 * 4, 0 * 4);
+    gl.vertexAttribPointer(locations.aColor   , 4, gl.FLOAT, false, 6 * 4, 2 * 4);
   }
 }
 
@@ -292,6 +293,7 @@ class Plot {
   constructor(gl) {
     this.gl = gl;
     this.prepped = false;
+    this.entries = {};
     this.draws = {
       static: [],
       dynamic: [],
@@ -314,16 +316,10 @@ class Plot {
     };
     gl.enableVertexAttribArray(this.locations.aPosition);
     gl.enableVertexAttribArray(this.locations.aColor);
-    // datas
-    this.datas = {
-      static: {
-        position: new Data(gl),
-        color: new Data(gl),
-      },
-      dynamic: {
-        position: new Data(gl),
-        color: new Data(gl),
-      },
+    // buffers
+    this.buffers = {
+      static: new Buffer(gl),
+      dynamic: new Buffer(gl),
     };
     // uniforms
     this.origin = { x: 0, y: 0 };
@@ -333,30 +329,30 @@ class Plot {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
   }
 
-  data(usage, mode, positions, colors) {
-    this.draws[usage].push({
-      mode,
-      first: this.datas[usage].position.length() / 2,
-      count: positions.length / 2,
-    });
-    this.datas[usage].position.push(positions);
-    this.datas[usage].color.push(colors);
+  /*
+  entry = {
+    name,
+    usage, // 'static' or 'dynamic'
+    mode, // 'points', 'lines', line_strip', 'triangles', etc.
+    // and one of
+    vertices: [
+      { x, y, r, g, b, a },
+      ...
+    ],
+    text: { s, x, y, r, g, b, a },
+  }
+  */
+  enter(entry) {
+    if (typeof entry.name !== 'string') throw new Error('Entry needs a name that is a string.');
+    if (!['static', 'dynamic'].includes(entry.usage)) throw new Error("Entry needs a usage, either 'static' or 'dynamic'.");
+    if (typeof entry.mode !== 'string') throw new Error('Entry needs a mode that is a string.');
+    if (!this.gl[entry.mode.toUpperCase()]) throw new Error('Unknown mode.');
+    if (entry.usage === 'static' && entry.text) throw new Error('Text cannot be have static usage.');
+    this.entries[entry.name] = entry;
   }
 
   draw() {
     const gl = this.gl;
-    // prep
-    if (!this.prepped) {
-      this.datas.static.position.toBuffer(gl.STATIC_DRAW);
-      this.datas.static.color.toBuffer(gl.STATIC_DRAW);
-      this.prepped = true;
-    }
-    // clear
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    // uniforms
-    gl.uniform2f(this.locations.uOrigin, this.origin.x, this.origin.y);
-    gl.uniform2f(this.locations.uZoom, this.zoom.x, this.zoom.y);
     // axes
     {
       const texter = new Texter();
@@ -399,24 +395,73 @@ class Plot {
         }
       }
       // to data
-      this.data('dynamic', 'lines', texter.positions, texter.colors);
+      this.enter({
+        name: '_axes',
+        usage: 'dynamic',
+        mode: 'lines',
+        vertices: texter.vertices,
+      });
     }
+    // prep
+    if (!this.prepped) {
+      for (const entry of Object.values(this.entries)) {
+        if (entry.usage !== 'static') continue;
+        this.draws.static.push({
+          mode: entry.mode,
+          first: this.buffers.static.length() / 6,
+          count: entry.vertices.length,
+        });
+        for (const v of entry.vertices) {
+          this.buffers.static.push(v.x, v.y, v.r, v.g, v.b, v.a);
+        }
+      }
+      this.buffers.static.prep(gl.STATIC_DRAW);
+      this.prepped = true;
+    }
+    for (const entry of Object.values(this.entries)) {
+      if (entry.usage !== 'dynamic') continue;
+      if (entry.vertices) {
+        this.draws.dynamic.push({
+          mode: entry.mode,
+          first: this.buffers.dynamic.length() / 6,
+          count: entry.vertices.length,
+        });
+        for (const v of entry.vertices) {
+          this.buffers.dynamic.push(v.x, v.y, v.r, v.g, v.b, v.a);
+        }
+      } else if (entry.text) {
+        const texter = new Texter();
+        const textW = 20 / gl.canvas.width / this.zoom.x;
+        const textH = 30 / gl.canvas.height / this.zoom.y;
+        texter.text(entry.text.s, entry.text.x, entry.text.y, textW, textH);
+        this.draws.dynamic.push({
+          mode: 'lines',
+          first: this.buffers.dynamic.length() / 6,
+          count: texter.vertices.length,
+        });
+        for (const v of texter.vertices) {
+          this.buffers.dynamic.push(v.x, v.y, v.r, v.g, v.b, v.a);
+        }
+      }
+    }
+    this.buffers.dynamic.prep(gl.DYNAMIC_DRAW);
+    // uniforms
+    gl.uniform2f(this.locations.uOrigin, this.origin.x, this.origin.y);
+    gl.uniform2f(this.locations.uZoom, this.zoom.x, this.zoom.y);
+    // clear
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
     // draw
+    this.buffers.static.attribute(this.locations);
     for (const draw of this.draws.static) {
-      this.datas.static.position.attribute(this.locations.aPosition, 2);
-      this.datas.static.color.attribute(this.locations.aColor, 4);
       gl.drawArrays(gl[draw.mode.toUpperCase()], draw.first, draw.count);
     }
+    this.buffers.dynamic.attribute(this.locations);
     for (const draw of this.draws.dynamic) {
-      this.datas.dynamic.position.toBuffer(gl.DYNAMIC_DRAW);
-      this.datas.dynamic.color.toBuffer(gl.DYNAMIC_DRAW);
-      this.datas.dynamic.position.attribute(this.locations.aPosition, 2);
-      this.datas.dynamic.color.attribute(this.locations.aColor, 4);
       gl.drawArrays(gl[draw.mode.toUpperCase()], draw.first, draw.count);
     }
     this.draws.dynamic = [];
-    this.datas.dynamic.position.clear();
-    this.datas.dynamic.color.clear();
+    this.buffers.dynamic.clear();
   }
 
   move(dx, dy) {
@@ -438,8 +483,7 @@ class Plot {
 
 class Texter {
   constructor() {
-    this.positions = [];
-    this.colors = [];
+    this.vertices = [];
   }
 
   text(s, x, y, w, h, r = 1, g = 1, b = 1, a = 1) {
@@ -461,11 +505,11 @@ class Texter {
       for (const c of glyph) this.glyph(c, x, y, w, h, r, g, b, a);
     } else {
       for (let i = 0; i < glyph.length; i += 2) {
-        this.positions.push(
-          x + glyph[i + 0] / 3 * w,
-          y + glyph[i + 1] / 2 * h,
-        );
-        this.colors.push(r, g, b, a);
+        this.vertices.push({
+          x: x + glyph[i + 0] / 3 * w,
+          y: y + glyph[i + 1] / 2 * h,
+          r, g, b, a,
+        })
       }
     }
   }
