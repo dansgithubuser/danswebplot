@@ -356,10 +356,10 @@ class Plot {
     // axes
     {
       const texter = new Texter();
-      const textW = 20 / gl.canvas.width / this.zoom.x;
-      const textH = 30 / gl.canvas.height / this.zoom.y;
-      const marginX = 10 / gl.canvas.width / this.zoom.x;
-      const marginY = 10 / gl.canvas.height / this.zoom.y;
+      const textW = 10 / gl.canvas.width / (this.zoom.x / 2);
+      const textH = 15 / gl.canvas.height / (this.zoom.y / 2);
+      const marginX = 5 / gl.canvas.width / (this.zoom.x / 2);
+      const marginY = 5 / gl.canvas.height / (this.zoom.y / 2);
       // x axis
       {
         const span = 2 / this.zoom.x;
