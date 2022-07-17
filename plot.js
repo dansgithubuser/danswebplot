@@ -147,14 +147,14 @@ const glyphs = {
   '"' : ['T25I', 'T24I', 'T45I', 'T44I'],
   '#' : ['T25I', 'T21I', 'T45I', 'T41I', 'T14I', 'T54I', 'T12I', 'T52I'],
   '$' : ['T54I', 'T14', 'N4', 'N6', 'T52', 'T12I', 'L82'],
-  '%' : ['N1I', 'N9I', [0, 2, 0, 1.8], [2, 0, 2, 0.2]],
+  '%' : ['N1I', 'N9I',  0, 2, 0, 1.8,  2, 0, 2, 0.2],
   '&' : ['N3I', 'T14', 'T25', 'T34', 'T12', 'T21', 'N2', 'N6I'],
   '\'': ['N8I', 'T34I'],
   '(' : ['T45I', 'T24', 'T22', 'T41I'],
   ')' : ['T25I', 'T44', 'T42', 'T21I'],
-  '*' : ['N8I', 'N5I', [0.5, 1.7, 1.5, 1.3], [0.5, 1.3, 1.5, 1.7]],
+  '*' : ['N8I', 'N5I',  0.5, 1.7, 1.5, 1.3,  0.5, 1.3, 1.5, 1.7],
   '+' : ['L1I', 'L3I', 'N5I', 'N2I'],
-  ',' : ['N2I', [0.8, -0.5]],
+  ',' : ['N2I',  0.8, -0.5],
   '-' : ['L1I', 'L3I'],
   '.' : ['DOT'],
   '/' : ['N1I', 'N9I'],
@@ -168,8 +168,8 @@ const glyphs = {
   '7' : ['N7I', 'N9', 'N3I'],
   '8' : ['O', 'L46'],
   '9' : ['N6I', 'N4', 'N7', 'N9', 'N3', 'N1I'],
-  ':' : ['DOT', [1, 1.1, 1, 0.9]],
-  ';' : ['N2I', [0.8, -0.5], [1, 1.1, 1, 0.9]],
+  ':' : ['DOT',  1, 1.1, 1, 0.9],
+  ';' : ['N2I',  0.8, -0.5,  1, 1.1, 1, 0.9],
   '<' : ['N6I', 'L1', 'N3I'],
   '=' : ['L46', 'L1I', 'L3I'],
   '>' : ['N4I', 'L3', 'N1I'],
@@ -501,15 +501,18 @@ class Texter {
 
   glyph(c, x, y, w, h, r, g, b, a) {
     const glyph = glyphs[c] || glyphs[null];
-    if (glyph.length && typeof glyph[0] === 'string') {
-      for (const c of glyph) this.glyph(c, x, y, w, h, r, g, b, a);
-    } else {
-      for (let i = 0; i < glyph.length; i += 2) {
+    let i = 0;
+    while (i < glyph.length) {
+      if (typeof glyph[i] === 'string') {
+        this.glyph(glyph[i], x, y, w, h, r, g, b, a)
+        i += 1
+      } else {
         this.vertices.push({
           x: x + glyph[i + 0] / 3 * w,
           y: y + glyph[i + 1] / 2 * h,
           r, g, b, a,
         })
+        i += 2
       }
     }
   }
