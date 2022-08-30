@@ -360,37 +360,37 @@ class Plot {
       const textH = 15 / gl.canvas.height / (this.zoom.y / 2);
       const marginX = 5 / gl.canvas.width / (this.zoom.x / 2);
       const marginY = 5 / gl.canvas.height / (this.zoom.y / 2);
+      const spanX = 2 / this.zoom.x;
+      const spanY = 2 / this.zoom.y;
       // x axis
       {
-        const span = 2 / this.zoom.x;
-        let increment = 10 ** Math.floor(Math.log10(span));
-        if (span / increment < 2) {
+        let increment = 10 ** Math.floor(Math.log10(spanX));
+        if (spanX / increment < 2) {
           increment /= 5;
-        } else if (span / increment < 5) {
+        } else if (spanX / increment < 5) {
           increment /= 2;
         }
-        let i = Math.floor((this.origin.x - span / 2) / increment) * increment + increment;
-        while (i < this.origin.x + span / 2) {
+        let i = Math.floor((this.origin.x - spanX / 2) / increment) * increment + increment;
+        while (i < this.origin.x + spanX / 2) {
           if (Math.abs(i) < 1e-12) i = 0;
-          texter.text(i.toPrecision(3), i + marginX, this.origin.y - span / 2 + marginY, textW, textH);
-          texter.text('L', i, this.origin.y - span / 2, textW * 2, textH);
+          texter.text(i.toPrecision(3), i + marginX, this.origin.y - spanY / 2 + marginY, textW, textH);
+          texter.text('L', i, this.origin.y - spanY / 2, textW * 2, textH);
           i += increment;
         }
       }
       // y axis
       {
-        const span = 2 / this.zoom.y;
-        let increment = 10 ** Math.floor(Math.log10(span));
-        if (span / increment < 2) {
+        let increment = 10 ** Math.floor(Math.log10(spanY));
+        if (spanY / increment < 2) {
           increment /= 5;
-        } else if (span / increment < 5) {
+        } else if (spanY / increment < 5) {
           increment /= 2;
         }
-        let i = Math.floor((this.origin.y - span / 2) / increment) * increment + increment;
-        while (i < this.origin.y + span / 2) {
+        let i = Math.floor((this.origin.y - spanY / 2) / increment) * increment + increment;
+        while (i < this.origin.y + spanY / 2) {
           if (Math.abs(i) < 1e-12) i = 0;
-          texter.text(i.toPrecision(3), this.origin.x - span / 2 + marginX, i + marginY, textW, textH);
-          texter.text('L', this.origin.x - span / 2, i, textW * 2, textH)
+          texter.text(i.toPrecision(3), this.origin.x - spanX / 2 + marginX, i + marginY, textW, textH);
+          texter.text('L', this.origin.x - spanX / 2, i, textW * 2, textH)
           i += increment;
         }
       }
@@ -477,6 +477,35 @@ class Plot {
     this.zoom.y *= factor;
     this.origin.x = x - (x - this.origin.x) / factor;
     this.origin.y = y - (y - this.origin.y) / factor;
+    this.draw();
+  }
+
+  zoomBy(factorX, factorY) {
+    this.zoom.x *= factorX;
+    this.zoom.y *= factorY;
+    this.draw();
+  }
+
+  center() {
+    let minX = +Infinity;
+    let minY = +Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const entry of Object.values(this.entries)) {
+      if (entry.name.startsWith('_')) continue;
+      for (const vertex of entry.vertices) {
+        minX = Math.min(minX, vertex.x);
+        minY = Math.min(minY, vertex.y);
+        maxX = Math.max(maxX, vertex.x);
+        maxY = Math.max(maxY, vertex.y);
+      }
+    }
+    if (minX !== Infinity) {
+      this.origin.x = (minX + maxX) / 2;
+      this.origin.y = (minY + maxY) / 2;
+      this.zoom.x = 1.5 / (maxX - minX);
+      this.zoom.y = 1.5 / (maxY - minY);
+    }
     this.draw();
   }
 }
