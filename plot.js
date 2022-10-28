@@ -502,9 +502,11 @@ class Plot {
     }
     if (minX !== Infinity) {
       this.origin.x = (minX + maxX) / 2;
+      this.zoom.x = 1.5 / Math.max(maxX - minX, 1e-9);
+    }
+    if (minY !== Infinity) {
       this.origin.y = (minY + maxY) / 2;
-      this.zoom.x = 1.5 / (maxX - minX);
-      this.zoom.y = 1.5 / (maxY - minY);
+      this.zoom.y = 1.5 / Math.max(maxY - minY, 1e-9);
     }
     this.draw();
   }
