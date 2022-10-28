@@ -347,7 +347,7 @@ class Plot {
     if (!['static', 'dynamic'].includes(entry.usage)) throw new Error("Entry needs a usage, either 'static' or 'dynamic'.");
     if (typeof entry.mode !== 'string') throw new Error('Entry needs a mode that is a string.');
     if (!this.gl[entry.mode.toUpperCase()]) throw new Error('Unknown mode.');
-    if (entry.usage === 'static' && entry.text) throw new Error('Text cannot be have static usage.');
+    if (entry.usage === 'static' && entry.text) throw new Error('Text cannot have static usage.');
     this.entries[entry.name] = entry;
   }
 
