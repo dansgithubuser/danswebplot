@@ -493,7 +493,7 @@ class Plot {
     let maxY = -Infinity;
     for (const entry of Object.values(this.entries)) {
       if (entry.name.startsWith('_')) continue;
-      for (const vertex of entry.vertices) {
+      for (const vertex of (entry.vertices || [entry.text])) {
         minX = Math.min(minX, vertex.x);
         minY = Math.min(minY, vertex.y);
         maxX = Math.max(maxX, vertex.x);
