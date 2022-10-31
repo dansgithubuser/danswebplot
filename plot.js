@@ -373,7 +373,7 @@ class Plot {
         let i = Math.floor((this.origin.x - spanX / 2) / increment) * increment + increment;
         while (i < this.origin.x + spanX / 2) {
           if (Math.abs(i) < 1e-12) i = 0;
-          texter.text(i.toPrecision(3), i + marginX, this.origin.y - spanY / 2 + marginY, textW, textH);
+          texter.text(`${Math.round(i * 1e12) / 1e12}`, i + marginX, this.origin.y - spanY / 2 + marginY, textW, textH);
           texter.text('L', i, this.origin.y - spanY / 2, textW * 2, textH);
           i += increment;
         }
@@ -389,7 +389,7 @@ class Plot {
         let i = Math.floor((this.origin.y - spanY / 2) / increment) * increment + increment;
         while (i < this.origin.y + spanY / 2) {
           if (Math.abs(i) < 1e-12) i = 0;
-          texter.text(i.toPrecision(3), this.origin.x - spanX / 2 + marginX, i + marginY, textW, textH);
+          texter.text(`${Math.round(i * 1e12) / 1e12}`, this.origin.x - spanX / 2 + marginX, i + marginY, textW, textH);
           texter.text('L', this.origin.x - spanX / 2, i, textW * 2, textH)
           i += increment;
         }
