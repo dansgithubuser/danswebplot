@@ -290,8 +290,10 @@ class Buffer {
 
 // interface
 class Plot {
-  constructor(gl) {
+  constructor(gl, xAxis = true, yAxis = true) {
     this.gl = gl;
+    this.xAxis = xAxis;
+    this.yAxis = yAxis;
     this.prepped = false;
     this.entries = {};
     this.draws = {
@@ -354,7 +356,7 @@ class Plot {
   draw() {
     const gl = this.gl;
     // axes
-    {
+    if (this.xAxis || this.yAxis) {
       const texter = new Texter();
       const textW = 10 / gl.canvas.width / (this.zoom.x / 2);
       const textH = 15 / gl.canvas.height / (this.zoom.y / 2);
@@ -363,7 +365,7 @@ class Plot {
       const spanX = 2 / this.zoom.x;
       const spanY = 2 / this.zoom.y;
       // x axis
-      {
+      if (this.xAxis) {
         let increment = 10 ** Math.floor(Math.log10(spanX));
         if (spanX / increment < 2) {
           increment /= 5;
@@ -379,7 +381,7 @@ class Plot {
         }
       }
       // y axis
-      {
+      if (this.yAxis) {
         let increment = 10 ** Math.floor(Math.log10(spanY));
         if (spanY / increment < 2) {
           increment /= 5;
