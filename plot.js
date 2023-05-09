@@ -341,7 +341,7 @@ class Plot {
       { x, y, r, g, b, a },
       ...
     ],
-    text: { s, x, y, r, g, b, a },
+    text: { s, x, y, r, g, b, a, maxW, maxH },
   }
   */
   enter(entry) {
@@ -435,7 +435,17 @@ class Plot {
         const texter = new Texter();
         const textW = 20 / gl.canvas.width / this.zoom.x;
         const textH = 30 / gl.canvas.height / this.zoom.y;
-        texter.text(entry.text.s, entry.text.x, entry.text.y, textW, textH);
+        const over = Math.max(
+          entry.text.s.length * textW / (entry.text.maxW || Infinity),
+          textH * 3 / 2 / (entry.text.maxH || Infinity),
+          1,
+        );
+        texter.text(
+          entry.text.s,
+          entry.text.x, entry.text.y,
+          textW / over, textH / over,
+          entry.text.r, entry.text.g, entry.text.b, entry.text.a,
+        );
         this.draws.dynamic.push({
           mode: 'lines',
           first: this.buffers.dynamic.length() / 6,
