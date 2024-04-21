@@ -290,16 +290,36 @@ class Buffer {
 
 // interface
 class Plot {
-  constructor(gl, xAxis = true, yAxis = true) {
+  /*
+  optionx.xAxis (default true)
+  optionx.yAxis (default true)
+  options.keydown({ key, plotX, plotY })
+  options.mousemove({ clientX, clientY, plotX, plotY })
+  options.mousedown({ button, plotX, plotY })
+  options.mouseup({ button, plotX, plotY })
+  options.wheel({ deltaY, plotX, plotY })
+  */
+  constructor(canvasId, options = {}) {
+    const canvas = document.getElementById(canvasId);
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    const gl = canvas.getContext('webgl', { antialias: false });
+    if (!gl) {
+      alert('Unable to initialize WebGL. Your browser or machine may not support it.');
+      return;
+    }
     this.gl = gl;
-    this.xAxis = xAxis;
-    this.yAxis = yAxis;
+    this.xAxis = options.xAxis || true;
+    this.yAxis = options.yAxis || true;
     this.prepped = false;
     this.entries = {};
     this.draws = {
       static: [],
       dynamic: [],
     };
+    this.drag = null;
+    this.mouse = null;
+    this.options = options;
     // shader
     const vertShader = loadShader(gl, gl.VERTEX_SHADER  , vertShaderSource);
     const fragShader = loadShader(gl, gl.FRAGMENT_SHADER, fragShaderSource);
@@ -329,6 +349,61 @@ class Plot {
     // alpha
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+    // controls
+    canvas.addEventListener('mousedown', (event) => {
+      if (event.button === 0) this.drag = { x: event.x, y: event.y };
+      this.emitWithXY('mousedown', { button: event.button });
+    });
+    canvas.addEventListener('mouseup', (event) => {
+      if (event.button === 0) this.drag = null;
+      this.emitWithXY('mouseup', { button: event.button });
+    });
+    canvas.addEventListener('mousemove', (event) => {
+      this.mouse = event;
+      if (this.drag) {
+        this.move(
+          -(event.x - this.drag.x) / canvas.width * 2,
+          +(event.y - this.drag.y) / canvas.height * 2,
+        );
+        this.drag = { x: event.x, y: event.y };
+      }
+      this.emitWithXY('mousemove', {
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+    });
+    canvas.addEventListener('wheel', (event) => {
+      if (this.mouseZoomExplicit && canvas !== document.activeElement) {
+        return;
+      }
+      this.zoomAt(
+        +(event.x / document.body.clientWidth * 2 - 1),
+        -(event.y / document.body.clientHeight * 2 - 1),
+        2 ** ((event.deltaY > 0 ? 1 : -1) / 2),
+      );
+      event.preventDefault();
+      this.emitWithXY('wheel', { deltaY: event.deltaY });
+    });
+    canvas.addEventListener('keydown', (event) => {
+      switch (event.key) {
+        case ' ': this.center(); event.preventDefault(); break;
+        case 'a': this.zoomBy(1.25, 1); break;
+        case 'd': this.zoomBy(0.80, 1); break;
+        case 'w': this.zoomBy(1, 1.25); break;
+        case 's': this.zoomBy(1, 0.80); break;
+        default:
+          this.emitWithXY('keydown', { key: event.key });
+          break;
+      }
+    });
+    canvas.addEventListener('focus', () => {
+      this.focused = true;
+      this.draw();
+    });
+    canvas.addEventListener('blur', () => {
+      this.focused = false;
+      this.draw();
+    });
   }
 
   /*
@@ -522,6 +597,16 @@ class Plot {
     }
     this.draw();
   }
+
+  emitWithXY(type, args = {}) {
+    if (!this.options[type]) return;
+    const canvas = this.gl.canvas;
+    this.options[type]({
+      ...args,
+      plotX: +((this.mouse.x - canvas.offsetLeft) / canvas.width  - 0.5) * 2 / this.zoom.x + this.origin.x,
+      plotY: -((this.mouse.y - canvas.offsetTop ) / canvas.height - 0.5) * 2 / this.zoom.y + this.origin.y,
+    });
+  }
 }
 
 class Texter {
@@ -559,4 +644,29 @@ class Texter {
       }
     }
   }
+}
+
+function rect(
+  vertices,
+  xi,
+  yi,
+  xf,
+  yf,
+  options = {
+    r: 1,
+    g: 1,
+    b: 1,
+    a: 1,
+  },
+) {
+  const r = options.r || 0;
+  const g = options.g || 0;
+  const b = options.b || 0;
+  const a = options.a || 1;
+  vertices.push({ x: xi, y: yi, r, g, b, a });
+  vertices.push({ x: xf, y: yi, r, g, b, a });
+  vertices.push({ x: xf, y: yf, r, g, b, a });
+  vertices.push({ x: xi, y: yi, r, g, b, a });
+  vertices.push({ x: xi, y: yf, r, g, b, a });
+  vertices.push({ x: xf, y: yf, r, g, b, a });
 }
