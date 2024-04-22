@@ -478,6 +478,23 @@ class Plot {
         mode: 'lines',
         vertices: texter.vertices,
       });
+      // focus
+      if (this.focused) {
+        const x = this.origin.x - spanX / 2;
+        const y = this.origin.y - spanY / 2;
+        this.enter({
+          name: '_focus',
+          usage: 'dynamic',
+          mode: 'triangles',
+          vertices: [
+            { x                 , y                 , r: 0, g: 1, b: 0, a: 0.5 },
+            { x: x + marginX * 4, y                 , r: 0, g: 1, b: 0, a: 0.5 },
+            { x                 , y: y + marginY * 4, r: 0, g: 1, b: 0, a: 0.5 },
+          ],
+        });
+      } else {
+        delete this.entries['_focus'];
+      }
     }
     // prep
     if (!this.prepped) {
